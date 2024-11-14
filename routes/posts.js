@@ -58,7 +58,7 @@ router.post("/add", upload.single("imageUrl"), async (req, res) => {
 
 router.post("/update/:id", async (req, res) => {
   try {
-    const post = await findById(req.params.id);
+    const post = await Post.findById(req.params.id);
     if (!post) {
       res.status(200).json({ status: false, message: "Post is not found" });
     }
@@ -83,7 +83,7 @@ router.post("/update/:id", async (req, res) => {
 
 router.delete("/delete/:id", async (req, res) => {
   try {
-    const deletedPost = await findByIdAndDelete(req.params.id);
+    const deletedPost = await Post.findByIdAndDelete(req.params.id);
     if (!deletedPost) {
       res.status(200).json({ status: true, message: "Post is not found " });
     }
@@ -96,8 +96,8 @@ router.delete("/delete/:id", async (req, res) => {
 
 router.get("/postById/:id", async (req, res) => {
   try {
-    const postId = await findById(req.params.id);
-    const post = await findOne(req.body);
+    const postId = await Post.findById(req.params.id);
+    const post = await Post.findOne(req.body);
     if (!postId) {
       res.status(200).json({ status: false, message: "Post is not found" });
     }
@@ -127,7 +127,7 @@ router.get("/get", (req, res) => {
 // like post
 router.put("/like/:id", async (req, res) => {
   try {
-    const post = await findOne({ _id: req.params.id });
+    const post = await Post.findOne({ _id: req.params.id });
     let isLiked = false;
     post.likes.map((item) => {
       if (item == req.body.userId) {
@@ -136,7 +136,7 @@ router.put("/like/:id", async (req, res) => {
     });
 
     if (isLiked) {
-      const res1 = await updateOne(
+      const res1 = await Post.updateOne(
         { _id: req.params.id },
         { $pull: { likes: req.body.userId } }
       );
@@ -144,7 +144,7 @@ router.put("/like/:id", async (req, res) => {
         .status(200)
         .json({ status: true, message: "like removed successfully" });
     } else {
-      const res1 = await updateOne(
+      const res1 = await Post.updateOne(
         { _id: req.params.id },
         { $push: { likes: req.body.userId } }
       );

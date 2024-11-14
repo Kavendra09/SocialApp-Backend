@@ -25,9 +25,9 @@ router.post("/add", async (req, res) => {
 
 router.delete("/delete/:id", async (req, res) => {
   try {
-    const comment = await findOne({ _id: req.params.id });
+    const comment = await Comment.findOne({ _id: req.params.id });
     if (comment) {
-      findOneAndDelete({ _id: req.params.id })
+      Comment.findOneAndDelete({ _id: req.params.id })
         .then(() => {
           res
             .status(200)
@@ -49,7 +49,7 @@ router.delete("/delete/:id", async (req, res) => {
 router.get("/get/:id", async (req, res) => {
   try {
     const postId = req.params.id;
-    const comments = await find({ postId });
+    const comments = await Comment.find({ postId });
     if (!postId) {
       res.status(200).json({ status: false, message: "Post is not found" });
     }
@@ -72,7 +72,7 @@ router.get("/get/:id", async (req, res) => {
 
 router.put("/update/:id", async (req, res) => {
   try {
-    findByIdAndUpdate({ _id: req.params.id }, { $set: req.body }).then(
+    Comment.findByIdAndUpdate({ _id: req.params.id }, { $set: req.body }).then(
       () => {
         res
           .status(200)
