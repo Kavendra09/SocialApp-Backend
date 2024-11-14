@@ -1,34 +1,14 @@
 import express from "express";
-import pkg from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
-import multer from "multer";
 import Post from "../models/Post.js";
-import dotenv from 'dotenv'
+import dotenv from "dotenv";
+import upload from '../middleware/Upload.js'
 
-dotenv.config()
+dotenv.config();
 
 const router = express.Router();
-const { v2: cloudinary } = pkg;
-
-cloudinary.config({
-  cloud_name: "dmmtivqan",
-  api_key: "161289169244717",
-  api_secret: process.env.Cloudnary_Secret_Key,
-});
-
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "posts", 
-    format: async () => "png", 
-    public_id: (req, file) => `${Date.now()}_${file.originalname}`,
-  },
-});
-
-const upload = multer({ storage });
 
 // add post
-router.post("/add", upload.single("imageUrl"), async (req, res) => {
+router.post("/add", upload, async (req, res) => {
   try {
     const { userId, username, caption } = req.body;
 
@@ -39,18 +19,21 @@ router.post("/add", upload.single("imageUrl"), async (req, res) => {
       });
     }
 
+    // Create a new post instance with the Cloudinary URL
     const newPost = new Post({
       userId,
       username,
       caption,
-      imageUrl: req.file?.path,
+      imageUrl: req.file.path,
     });
 
     await newPost.save();
     res.status(200).json({ status: true, message: "Post added successfully" });
   } catch (error) {
     console.error("Error saving post:", error);
-    res.status(500).json(error);
+    res
+      .status(500)
+      .json({ status: false, message: "Error saving post", error });
   }
 });
 
