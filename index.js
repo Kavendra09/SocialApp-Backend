@@ -1,4 +1,5 @@
-import express, { json} from "express";
+import express, { json } from "express";
+import bodyParser from "body-parser";
 const app = express();
 
 import morgan from "morgan";
@@ -15,6 +16,8 @@ config();
 connect(process.env.BASE_URL).then(() => {
   console.log("mongo db database is connected  ✅✅✅");
 });
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 app.use(json());
 app.use(helmet());
