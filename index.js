@@ -33,6 +33,10 @@ app.use(
     credentials: true,
   })
 );
+app.use((req, res, next) => {
+  res.set("Cache-Control", "no-store"); // Disable caching
+  next();
+});
 
 connect(process.env.BASE_URL).then(() => {
   console.log("mongo db database is connected  ✅✅✅");

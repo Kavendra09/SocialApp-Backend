@@ -2,42 +2,89 @@ import express from "express";
 import Post from "../models/Post.js";
 import dotenv from "dotenv";
 import { v2 as cloudinary } from "cloudinary";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const router = express.Router();
 
-// add post
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "..", "public", "uploads");
+    cb(null, uploadDir); // Set destination folder for file upload
+  },
+  filename: (req, file, cb) => {
+    const fileName = Date.now() + "-" + file.originalname;
+    cb(null, fileName); // Set filename for the uploaded file
+  },
+});
+
+const upload = multer({ storage: storage }); // Multer middleware
+
 cloudinary.config({
   cloud_name: process.env.Cloud_name,
   api_key: process.env.Api_Key,
   api_secret: process.env.Api_Secret,
 });
 
-router.post("/add", async (req, res) => {
-  try {
-    const { image, caption, userId, username } = req.body;
+// Function to upload file to Cloudinary and delete local file
+const uploadFileAndDeleteLocal = (filePath) => {
+  return cloudinary.uploader
+    .upload(filePath, { folder: "posts" })
+    .then((result) => {
+      // If the upload is successful, delete the local file
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          console.error("Error deleting the file:", err);
+        } else {
+          console.log(`Successfully deleted local file: ${filePath}`);
+        }
+      });
+      return result.secure_url; // Return the Cloudinary URL of the uploaded file
+    })
+    .catch((error) => {
+      console.error("Error uploading file to Cloudinary:", error);
+      throw error; // Propagate the error if upload fails
+    });
+};
 
-    // Upload the base64 image to Cloudinary
-    const result = await cloudinary.uploader.upload(
-      `data:image/jpeg;base64,${image}`,
-      {
-        folder: "posts",
-      }
+// Post route to handle file upload and save post data
+router.post("/add", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const { caption, userId, username } = req.body;
+    const filePath = path.join(
+      __dirname,
+      "..",
+      "public",
+      "uploads",
+      req.file.filename
     );
 
-    // Save the post in your database (make sure to include the image URL)
+    // Upload to Cloudinary and get the URL
+    const imageUrl = await uploadFileAndDeleteLocal(filePath);
+
+    // Create a new post (Save to your database, assuming you have a Post model)
     const post = new Post({
       caption,
       userId,
       username,
-      imageUrl: result.secure_url, // URL returned by Cloudinary
+      imageUrl,
     });
 
     await post.save();
+
     res.status(200).json({ message: "Post submitted successfully", post });
   } catch (error) {
-    console.error("❌ Error uploading post:", error);
     res
       .status(500)
       .json({ error: "Error submitting post", details: error.message });
