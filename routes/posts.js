@@ -3,91 +3,59 @@ import Post from "../models/Post.js";
 import dotenv from "dotenv";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import cors from "cors";
 
 dotenv.config();
 
 const router = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+router.use(cors());
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "..", "public", "uploads");
-    cb(null, uploadDir); // Set destination folder for file upload
-  },
-  filename: (req, file, cb) => {
-    const fileName = Date.now() + "-" + file.originalname;
-    cb(null, fileName); // Set filename for the uploaded file
-  },
-});
-
-const upload = multer({ storage: storage }); // Multer middleware
-
+// Cloudinary configuration
 cloudinary.config({
   cloud_name: process.env.Cloud_name,
   api_key: process.env.Api_Key,
   api_secret: process.env.Api_Secret,
 });
 
-// Function to upload file to Cloudinary and delete local file
-const uploadFileAndDeleteLocal = (filePath) => {
-  return cloudinary.uploader
-    .upload(filePath, { folder: "posts" })
-    .then((result) => {
-      // If the upload is successful, delete the local file
-      fs.unlink(filePath, (err) => {
-        if (err) {
-          console.error("Error deleting the file:", err);
-        } else {
-          console.log(`Successfully deleted local file: ${filePath}`);
-        }
-      });
-      return result.secure_url; // Return the Cloudinary URL of the uploaded file
-    })
-    .catch((error) => {
-      console.error("Error uploading file to Cloudinary:", error);
-      throw error; // Propagate the error if upload fails
-    });
-};
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "posts",
+    format: async (req, file) => "jpeg", 
+    public_id: (req, file) => Date.now() + "-" + file.originalname,
+  },
+});
 
-// Post route to handle file upload and save post data
+const upload = multer({ storage: storage });
+
 router.post("/add", upload.single("image"), async (req, res) => {
   try {
+    const { caption, userId, username } = req.body;
+
     if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
+      return res.status(400).json({ error: "Image is required" });
     }
 
-    const { caption, userId, username } = req.body;
-    const filePath = path.join(
-      __dirname,
-      "..",
-      "public",
-      "uploads",
-      req.file.filename
-    );
+    const imageUrl = req.file.path; // Cloudinary URL
 
-    // Upload to Cloudinary and get the URL
-    const imageUrl = await uploadFileAndDeleteLocal(filePath);
-
-    // Create a new post (Save to your database, assuming you have a Post model)
-    const post = new Post({
+    const newPost = new Post({
       caption,
       userId,
       username,
       imageUrl,
+      likes: [],
+      comments: [],
+      createdAt: new Date(),
     });
 
-    await post.save();
+    await newPost.save();
 
-    res.status(200).json({ message: "Post submitted successfully", post });
+    res.status(201).json({ message: "Post added successfully", post: newPost });
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: "Error submitting post", details: error.message });
+    console.error("Error creating post:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
